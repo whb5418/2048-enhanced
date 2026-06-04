@@ -1,0 +1,1430 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2048++</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #faf8ef 0%, #eee4da 100%);
+            color: #776e65;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .container {
+            width: 90%;
+            max-width: 520px;
+            margin: 0 auto;
+            padding: 20px 0;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .header-wrapper {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 0 2%;
+        }
+        .header-left {
+            flex: 1;
+        }
+        .title {
+            font-size: clamp(40px, 12vw, 70px);
+            font-weight: bold;
+            color: #776e65;
+            line-height: 1;
+        }
+        .game-intro {
+            font-size: 14px;
+            color: #776e65;
+            margin-top: 8px;
+        }
+        .header-right {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            min-width: 180px;
+        }
+        .score-item {
+            background: linear-gradient(145deg, #bbada0, #a39489);
+            padding: 8px 12px;
+            border-radius: 6px;
+            color: white;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .score-item span:first-child {
+            font-size: 11px;
+            color: #eee4da;
+            text-transform: uppercase;
+            font-weight: bold;
+            display: block;
+        }
+        .score-item span:last-child {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .action-btn {
+            background: linear-gradient(145deg, #8f7a66, #7a6655);
+            color: #f9f6f2;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+        }
+        .action-btn:hover {
+            background: linear-gradient(145deg, #9f8b77, #8a7665);
+            transform: translateY(-1px);
+        }
+        .action-btn:active {
+            transform: translateY(1px);
+        }
+        #game-container {
+            position: relative;
+            width: 100%;
+            margin-bottom: 20px;
+            touch-action: none;
+        }
+        #grid-container {
+            display: grid;
+            gap: 2%;
+            width: 100%;
+            aspect-ratio: 1/1;
+            background: linear-gradient(145deg, #bbada0, #a39489);
+            border-radius: 8px;
+            padding: 2%;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .cell {
+            background: linear-gradient(145deg, #cdc1b4, #b5a595);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #776e65;
+            position: relative;
+            user-select: none;
+            transition: all 0.15s ease;
+        }
+        .tile-2 { background: linear-gradient(145deg, #eee4da, #ddd6c8); color: #776e65; }
+        .tile-4 { background: linear-gradient(145deg, #ede0c8, #ddc8a8); color: #776e65; }
+        .tile-8 { background: linear-gradient(145deg, #f2b179, #e8a060); color: white; }
+        .tile-16 { background: linear-gradient(145deg, #f59563, #e88050); color: white; }
+        .tile-32 { background: linear-gradient(145deg, #f67c5f, #e7684a); color: white; }
+        .tile-64 { background: linear-gradient(145deg, #f65e3b, #e54d2a); color: white; }
+        .tile-128 { background: linear-gradient(145deg, #edcf72, #e0bf60); color: white; }
+        .tile-256 { background: linear-gradient(145deg, #edcc61, #dbb850); color: white; }
+        .tile-512 { background: linear-gradient(145deg, #edc850, #dab440); color: white; }
+        .tile-1024 { background: linear-gradient(145deg, #edc53f, #d9b02f); color: white; }
+        .tile-2048 { background: linear-gradient(145deg, #edc22e, #d9ae1e); color: white; }
+        .tile-4096 { background: linear-gradient(145deg, #3c3a32, #2d2b26); color: #f9f6f2; }
+        .tile-8192 { background: linear-gradient(145deg, #3c3a32, #2d2b26); color: #f9f6f2; }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.08); }
+        }
+        .cell.pulse {
+            animation: pulse 0.4s ease-in-out;
+            z-index: 1;
+        }
+        @keyframes appear {
+            0% { opacity: 0; transform: scale(0.8); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        .cell.appear {
+            animation: appear 0.2s ease-out;
+        }
+        @keyframes slideIn {
+            0% { opacity: 0; transform: translateY(-20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+        .info-section {
+            margin-top: auto;
+        }
+        .cheat-info {
+            font-size: 13px;
+            color: #776e65;
+            text-align: center;
+            padding: 15px;
+            background: rgba(255,255,255,0.5);
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        #footer {
+            text-align: center;
+            font-size: 14px;
+            color: #776e65;
+            margin-bottom: 10px;
+        }
+        #footer a { color: #f59563; text-decoration: none; }
+        #footer a:hover { text-decoration: underline; }
+        
+        /* Modal styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.2s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .modal {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            animation: modalPop 0.3s ease;
+        }
+        @keyframes modalPop {
+            0% { transform: scale(0.9); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .modal-title {
+            font-size: 22px;
+            font-weight: bold;
+            color: #776e65;
+        }
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background: #eee;
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-close:hover { background: #ddd; }
+        .modal-content {
+            margin-bottom: 20px;
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .modal-buttons .action-btn {
+            flex: 1;
+        }
+        
+        /* Settings Panel */
+        .settings-panel {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 50;
+            margin-top: 10px;
+            min-width: 200px;
+        }
+        .settings-panel.active { display: block; }
+        .setting-item {
+            margin-bottom: 15px;
+        }
+        .setting-item:last-child { margin-bottom: 0; }
+        .setting-label {
+            display: block;
+            font-size: 13px;
+            font-weight: bold;
+            color: #776e65;
+            margin-bottom: 8px;
+        }
+        .difficulty-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        .difficulty-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .difficulty-btn.active {
+            border-color: #f59563;
+            background: #f59563;
+            color: white;
+        }
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 28px;
+            background: #ddd;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .toggle-switch.active { background: #f59563; }
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border-radius: 50%;
+            transition: left 0.2s;
+        }
+        .toggle-switch.active::after { left: 24px; }
+        
+        /* Leaderboard */
+        .leaderboard-list {
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        .leaderboard-item:last-child { border-bottom: none; }
+        .leaderboard-rank {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #bbada0;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .leaderboard-rank.gold { background: #ffd700; color: #333; }
+        .leaderboard-rank.silver { background: #c0c0c0; color: #333; }
+        .leaderboard-rank.bronze { background: #cd7f32; color: white; }
+        .leaderboard-info {
+            flex: 1;
+        }
+        .leaderboard-name { font-weight: bold; font-size: 14px; }
+        .leaderboard-score { font-size: 16px; font-weight: bold; color: #f59563; }
+        .leaderboard-date { font-size: 11px; color: #999; }
+        
+        /* Achievements */
+        .achievements-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        .achievement-card {
+            background: #faf8ef;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            border: 2px solid #ddd;
+            transition: all 0.2s;
+        }
+        .achievement-card.unlocked {
+            border-color: #f59563;
+            background: linear-gradient(145deg, #fff9f0, #fff5eb);
+        }
+        .achievement-icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+        .achievement-card.locked .achievement-icon {
+            filter: grayscale(1);
+            opacity: 0.5;
+        }
+        .achievement-name {
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        .achievement-desc {
+            font-size: 11px;
+            color: #999;
+        }
+        
+        /* Loading Screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #faf8ef 0%, #eee4da 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+        .loading-logo {
+            font-size: 80px;
+            font-weight: bold;
+            color: #776e65;
+            animation: bounce 1s ease-in-out infinite;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .loading-bar {
+            width: 200px;
+            height: 8px;
+            background: #ddd;
+            border-radius: 4px;
+            margin-top: 30px;
+            overflow: hidden;
+        }
+        .loading-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #f59563, #f2b179);
+            border-radius: 4px;
+            animation: loading 1.5s ease-in-out infinite;
+        }
+        @keyframes loading {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+        
+        /* Navigation Menu */
+        .nav-menu {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding: 0 2%;
+        }
+        .nav-btn {
+            padding: 8px 16px;
+            border: none;
+            background: #bbada0;
+            color: white;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .nav-btn:hover { background: #a39489; }
+        .nav-btn.active { background: #f59563; }
+        
+        /* Resume Page */
+        .resume-page {
+            display: none;
+        }
+        .resume-page.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        .resume-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .resume-avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #f59563, #f2b179);
+            margin: 0 auto 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 50px;
+            color: white;
+        }
+        .resume-name {
+            font-size: 24px;
+            font-weight: bold;
+            color: #776e65;
+        }
+        .resume-title {
+            font-size: 14px;
+            color: #999;
+            margin-top: 5px;
+        }
+        .resume-contact {
+            margin-top: 10px;
+            font-size: 13px;
+            color: #776e65;
+        }
+        .resume-section {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .section-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #776e65;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f59563;
+        }
+        .experience-item {
+            margin-bottom: 15px;
+        }
+        .experience-item:last-child { margin-bottom: 0; }
+        .experience-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        .experience-company {
+            font-weight: bold;
+            color: #776e65;
+        }
+        .experience-date {
+            font-size: 12px;
+            color: #999;
+        }
+        .experience-position {
+            font-size: 13px;
+            color: #f59563;
+            margin-bottom: 5px;
+        }
+        .experience-desc {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.5;
+        }
+        .skill-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .skill-tag {
+            padding: 4px 12px;
+            background: #f59563;
+            color: white;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+        
+        /* Share Panel */
+        .share-panel {
+            text-align: center;
+        }
+        .share-score {
+            font-size: 36px;
+            font-weight: bold;
+            color: #f59563;
+            margin-bottom: 15px;
+        }
+        .share-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        .share-btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .share-btn.copy { background: #4CAF50; color: white; }
+        .share-btn.copy:hover { background: #45a049; }
+        .share-btn.screenshot { background: #2196F3; color: white; }
+        .share-btn.screenshot:hover { background: #1976D2; }
+        
+        /* Theme Colors */
+        body.dark-theme {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #eaeaea;
+        }
+        body.dark-theme .title { color: #eaeaea; }
+        body.dark-theme .game-intro { color: #aaa; }
+        body.dark-theme #grid-container {
+            background: linear-gradient(145deg, #2d2d44, #252538);
+        }
+        body.dark-theme .cell {
+            background: linear-gradient(145deg, #3d3d5c, #353550);
+            color: #eaeaea;
+        }
+        body.dark-theme .tile-2 { background: linear-gradient(145deg, #4a4a6a, #3d3d5c); color: #eaeaea; }
+        body.dark-theme .tile-4 { background: linear-gradient(145deg, #5a5a7a, #4a4a6a); color: #eaeaea; }
+        body.dark-theme .modal { background: #2d2d44; }
+        body.dark-theme .modal-title { color: #eaeaea; }
+        body.dark-theme .achievement-card { background: #2d2d44; border-color: #444; }
+        body.dark-theme .achievement-card.unlocked { background: #3d3d5c; }
+        body.dark-theme .resume-section { background: #2d2d44; }
+        body.dark-theme .section-title { color: #eaeaea; }
+        body.dark-theme .experience-company { color: #eaeaea; }
+        body.dark-theme .experience-desc { color: #aaa; }
+        
+        /* Responsive */
+        @media(max-width: 520px) {
+            .header-wrapper { flex-direction: column; align-items: stretch; }
+            .header-left { text-align: center; margin-bottom: 15px; }
+            .header-right { width: 100%; }
+            .nav-menu { flex-wrap: wrap; }
+            .nav-btn { flex: 1; min-width: 80px; }
+            .achievements-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-logo">2048</div>
+        <div class="loading-bar">
+            <div class="loading-progress"></div>
+        </div>
+    </div>
+
+    <!-- Navigation Menu -->
+    <div class="nav-menu">
+        <button class="nav-btn active" onclick="showPage('game')">🎮 游戏</button>
+        <button class="nav-btn" onclick="showPage('leaderboard')">🏆 排行榜</button>
+        <button class="nav-btn" onclick="showPage('achievements')">🏅 成就</button>
+        <button class="nav-btn" onclick="showPage('resume')"> 简历</button>
+    </div>
+
+    <!-- Game Page -->
+    <div id="game-page" class="container">
+        <div class="header-wrapper">
+            <div class="header-left">
+                <h1 class="title">2048++</h1>
+                <p class="game-intro">合并方块，挑战 <strong>2048</strong>！</p>
+            </div>
+            <div class="header-right">
+                <div class="score-item"><span>分数</span><span id="current-score">0</span></div>
+                <div class="score-item"><span>最高分</span><span id="best-score">0</span></div>
+                <button class="action-btn" onclick="undoMove()">↩️ 撤销</button>
+                <button class="action-btn" onclick="showSettings()">️ 设置</button>
+            </div>
+        </div>
+
+        <!-- Settings Panel -->
+        <div id="settings-panel" class="settings-panel">
+            <div class="setting-item">
+                <div class="setting-label">难度选择</div>
+                <div class="difficulty-buttons">
+                    <button class="difficulty-btn" onclick="setDifficulty(3)">3×3</button>
+                    <button class="difficulty-btn active" onclick="setDifficulty(4)">4×4</button>
+                    <button class="difficulty-btn" onclick="setDifficulty(5)">5×5</button>
+                </div>
+            </div>
+            <div class="setting-item">
+                <div class="setting-label">音效 <span id="sound-label">开启</span></div>
+                <div id="sound-toggle" class="toggle-switch active" onclick="toggleSound()"></div>
+            </div>
+            <div class="setting-item">
+                <div class="setting-label">深色主题 <span id="theme-label">关闭</span></div>
+                <div id="theme-toggle" class="toggle-switch" onclick="toggleTheme()"></div>
+            </div>
+        </div>
+
+        <div id="game-container">
+            <div id="grid-container"></div>
+            
+            <!-- Game Over Modal -->
+            <div id="game-over-modal" class="modal-overlay">
+                <div class="modal">
+                    <div class="modal-header">
+                        <h2 class="modal-title">游戏结束！</h2>
+                        <button class="modal-close" onclick="closeModal('game-over-modal')">×</button>
+                    </div>
+                    <div class="modal-content">
+                        <div class="share-score">最终得分: <span id="final-score">0</span></div>
+                        <input type="text" id="player-name" placeholder="输入你的名字" style="width:100%; padding:10px; margin-bottom:15px; border:2px solid #ddd; border-radius:6px;" />
+                    </div>
+                    <div class="share-actions">
+                        <button class="share-btn copy" onclick="saveScoreAndShare()">💾 保存分数</button>
+                        <button class="share-btn screenshot" onclick="shareScore()">📤 分享</button>
+                    </div>
+                    <div class="modal-buttons" style="margin-top:15px;">
+                        <button class="action-btn" onclick="undoMoveAndCloseModal()">↩️ 撤销</button>
+                        <button class="action-btn" onclick="initGameAndCloseModal()">🔄 再来一局</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pause Modal -->
+            <div id="pause-modal" class="modal-overlay">
+                <div class="modal">
+                    <div class="modal-header">
+                        <h2 class="modal-title">️ 游戏暂停</h2>
+                        <button class="modal-close" onclick="closeModal('pause-modal')">×</button>
+                    </div>
+                    <div class="modal-content" style="text-align:center;">
+                        <p style="color:#776e65;">休息一下，随时回来继续！</p>
+                    </div>
+                    <div class="modal-buttons">
+                        <button class="action-btn" onclick="closeModal('pause-modal')">▶️ 继续游戏</button>
+                        <button class="action-btn" onclick="initGame(); closeModal('pause-modal');">🔄 新游戏</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <div class="cheat-info">
+                <p>💡 输入 ⬅️⬅️➡️️➡️➡️⬅️⬅️ 开启作弊模式</p>
+                <p>所有方块瞬间变成 128，快速跳过前期！</p>
+            </div>
+            <div id="footer">
+                由 <a href="https://github.com/sz30/2048--" target="_blank">Shaun</a> 开发 | 
+                <button onclick="showAchievements()" style="background:none; border:none; color:#f59563; cursor:pointer; text-decoration:underline;">查看成就</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaderboard Page -->
+    <div id="leaderboard-page" class="container resume-page">
+        <h2 class="modal-title" style="text-align:center; margin-bottom:20px;">🏆 排行榜</h2>
+        <div id="leaderboard-list" class="leaderboard-list">
+            <div class="leaderboard-item">
+                <span class="leaderboard-rank">1</span>
+                <div class="leaderboard-info">
+                    <div class="leaderboard-name">玩家1</div>
+                    <div class="leaderboard-date">2024-01-01</div>
+                </div>
+                <div class="leaderboard-score">2048</div>
+            </div>
+        </div>
+        <button class="action-btn" style="width:100%; margin-top:20px;" onclick="clearLeaderboard()">🗑️ 清空排行榜</button>
+    </div>
+
+    <!-- Achievements Page -->
+    <div id="achievements-page" class="container resume-page">
+        <h2 class="modal-title" style="text-align:center; margin-bottom:20px;">🏅 成就系统</h2>
+        <div id="achievements-grid" class="achievements-grid">
+            <div class="achievement-card" id="achievement-first">
+                <div class="achievement-icon">🎉</div>
+                <div class="achievement-name">首次通关</div>
+                <div class="achievement-desc">合成2048方块</div>
+            </div>
+            <div class="achievement-card" id="achievement-perfect">
+                <div class="achievement-icon">💯</div>
+                <div class="achievement-name">满分挑战</div>
+                <div class="achievement-desc">合成4096方块</div>
+            </div>
+            <div class="achievement-card" id="achievement-speed">
+                <div class="achievement-icon">⚡</div>
+                <div class="achievement-name">速度之王</div>
+                <div class="achievement-desc">60秒内合成1024</div>
+            </div>
+            <div class="achievement-card" id="achievement-undo">
+                <div class="achievement-icon">🔄</div>
+                <div class="achievement-name">时光倒流</div>
+                <div class="achievement-desc">使用撤销功能10次</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resume Page -->
+    <div id="resume-page" class="container resume-page">
+        <div class="resume-header">
+            <div class="resume-avatar">👨‍💻</div>
+            <div class="resume-name">王涵宾</div>
+            <div class="resume-title">应届毕业生 | 移动端开发 | 深圳</div>
+            <div class="resume-contact">📱 13950726318 | 📧 3138003124@qq.com</div>
+        </div>
+
+        <div class="resume-section">
+            <div class="section-title">🎓 教育经历</div>
+            <div class="experience-item">
+                <div class="experience-header">
+                    <span class="experience-company">老鱼大学</span>
+                    <span class="experience-date">2020-09 ~ 2024-07</span>
+                </div>
+                <div class="experience-position">计算机科学与技术 | 本科</div>
+                <div class="experience-desc">全日制本科，主修数据结构、算法、操作系统、计算机网络等课程。</div>
+            </div>
+        </div>
+
+        <div class="resume-section">
+            <div class="section-title">💼 工作经历</div>
+            <div class="experience-item">
+                <div class="experience-header">
+                    <span class="experience-company">鱼互联网有限公司</span>
+                    <span class="experience-date">2023-02 ~ 2023-04</span>
+                </div>
+                <div class="experience-position">创新业务部 | 全栈开发 | 杭州</div>
+                <div class="experience-desc">参与公司创新项目开发，负责前端页面开发和后端接口对接，提升产品用户体验。</div>
+            </div>
+        </div>
+
+        <div class="resume-section">
+            <div class="section-title">🛠️ 专业技能</div>
+            <div class="skill-tags">
+                <span class="skill-tag">JavaScript</span>
+                <span class="skill-tag">TypeScript</span>
+                <span class="skill-tag">React</span>
+                <span class="skill-tag">Vue</span>
+                <span class="skill-tag">Node.js</span>
+                <span class="skill-tag">HTML/CSS</span>
+                <span class="skill-tag">Git</span>
+                <span class="skill-tag">MySQL</span>
+            </div>
+        </div>
+
+        <div class="resume-section">
+            <div class="section-title">🏆 项目经验</div>
+            <div class="experience-item">
+                <div class="experience-header">
+                    <span class="experience-company">2048++ 游戏</span>
+                    <span class="experience-date">2024</span>
+                </div>
+                <div class="experience-position">独立开发</div>
+                <div class="experience-desc">开发了增强版2048游戏，包含难度选择、成就系统、排行榜、分享功能等特性。</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const store = (() => {
+            const mem = {};
+            try { localStorage.setItem('_t', '1'); localStorage.removeItem('_t'); return localStorage; }
+            catch (e) { return { getItem: k => mem[k] || null, setItem: (k, v) => { mem[k] = String(v); }, removeItem: k => { delete mem[k]; } }; }
+        })();
+
+        // Game State
+        let board = [];
+        let currentScore = 0;
+        let bestScore = 0;
+        let historyStack = [];
+        let isGameOver = false;
+        let isPaused = false;
+        let gridSize = 4;
+        let soundEnabled = true;
+        let darkTheme = false;
+        
+        // Cheat Code
+        const cheatCode = ['left', 'left', 'right', 'right', 'right', 'right', 'left', 'left'];
+        let inputSequence = [];
+        let isCheatMode = false;
+        
+        // Achievements
+        let achievements = {
+            first: false,
+            perfect: false,
+            speed: false,
+            undo: false
+        };
+        let undoCount = 0;
+        let gameStartTime = 0;
+        
+        // Leaderboard
+        let leaderboard = [];
+
+        // Audio Context
+        let audioCtx = null;
+        function playSound(freq = 440, duration = 0.1) {
+            if (!soundEnabled) return;
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.frequency.value = freq;
+                oscillator.type = 'sine';
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+                oscillator.start(audioCtx.currentTime);
+                oscillator.stop(audioCtx.currentTime + duration);
+            } catch (e) { console.log('Audio not supported'); }
+        }
+
+        function createEmptyBoard() {
+            return Array.from({ length: gridSize }, () => Array(gridSize).fill(0));
+        }
+
+        function addRandomTile(b) {
+            const empties = [];
+            for (let r = 0; r < gridSize; r++) 
+                for (let c = 0; c < gridSize; c++) 
+                    if (!b[r][c]) empties.push([r, c]);
+            if (!empties.length) return;
+            const [r, c] = empties[Math.floor(Math.random() * empties.length)];
+            b[r][c] = Math.random() < 0.9 ? 2 : 4;
+            playSound(523, 0.05);
+        }
+
+        function slideLeft(row) {
+            let arr = row.filter(x => x);
+            const merged = Array(gridSize).fill(false);
+            for (let i = 0; i < arr.length - 1; i++) {
+                if (arr[i] === arr[i + 1]) { 
+                    arr[i] *= 2; 
+                    arr.splice(i + 1, 1); 
+                    merged[i] = true;
+                }
+            }
+            while (arr.length < gridSize) arr.push(0);
+            return { row: arr, merged };
+        }
+
+        function rotateBoard(b) {
+            return b[0].map((_, i) => b.map(row => row[i]).reverse());
+        }
+
+        function computeMoveWithMerges(b, direction) {
+            let nb = b.map(r => [...r]);
+            let rotations = { left: 0, down: 1, right: 2, up: 3 }[direction];
+            for (let i = 0; i < rotations; i++) nb = rotateBoard(nb);
+
+            const mergedLocal = nb.map(row => {
+                const arr = row.filter(x => x);
+                const m = Array(gridSize).fill(false);
+                for (let i = 0; i < arr.length - 1; i++) {
+                    if (arr[i] === arr[i + 1]) {
+                        arr[i] *= 2;
+                        arr.splice(i + 1, 1);
+                        m[i] = true;
+                    }
+                }
+                while (arr.length < gridSize) arr.push(0);
+                return { row: arr, merged: m };
+            });
+
+            const boardSlid = mergedLocal.map(x => x.row);
+            const mergedSlid = mergedLocal.map(x => x.merged);
+
+            let reverseRot = (4 - rotations) % 4;
+            let finalBoard = boardSlid.map(r => [...r]);
+            let finalMerged = mergedSlid.map(r => [...r]);
+            for (let i = 0; i < reverseRot; i++) {
+                finalBoard = rotateBoard(finalBoard);
+                finalMerged = rotateBoard(finalMerged);
+            }
+            return { board: finalBoard, merged: finalMerged };
+        }
+
+        function canMove(b) {
+            for (let r = 0; r < gridSize; r++) 
+                for (let c = 0; c < gridSize; c++) {
+                    if (!b[r][c]) return true;
+                    if (c < gridSize - 1 && b[r][c] === b[r][c + 1]) return true;
+                    if (r < gridSize - 1 && b[r][c] === b[r + 1][c]) return true;
+                }
+            return false;
+        }
+
+        function checkAchievements(newBoard) {
+            const flatBoard = newBoard.flat();
+            
+            if (!achievements.first && flatBoard.includes(2048)) {
+                achievements.first = true;
+                playSound(659, 0.3);
+                showAchievementToast('🎉 首次通关！合成了2048方块！');
+            }
+            
+            if (!achievements.perfect && flatBoard.includes(4096)) {
+                achievements.perfect = true;
+                playSound(784, 0.3);
+                showAchievementToast('💯 满分挑战！合成了4096方块！');
+            }
+            
+            const maxTile = Math.max(...flatBoard);
+            if (!achievements.speed && maxTile >= 1024) {
+                const elapsed = (Date.now() - gameStartTime) / 1000;
+                if (elapsed <= 60) {
+                    achievements.speed = true;
+                    playSound(880, 0.3);
+                    showAchievementToast('⚡ 速度之王！60秒内合成了1024！');
+                }
+            }
+            
+            if (!achievements.undo && undoCount >= 10) {
+                achievements.undo = true;
+                playSound(587, 0.3);
+                showAchievementToast('🔄 时光倒流！使用撤销功能10次！');
+            }
+            
+            saveAchievements();
+            updateAchievementsUI();
+        }
+
+        function showAchievementToast(message) {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(0,0,0,0.8);
+                color: white;
+                padding: 20px 30px;
+                border-radius: 12px;
+                font-size: 18px;
+                font-weight: bold;
+                z-index: 300;
+                animation: fadeIn 0.3s ease;
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 3000);
+        }
+
+        async function initGame() {
+            board = createEmptyBoard();
+            addRandomTile(board);
+            addRandomTile(board);
+            currentScore = 0;
+            bestScore = Math.max(parseInt(store.getItem('bestScore') || 0), bestScore);
+            store.setItem('bestScore', bestScore);
+            historyStack = [];
+            isGameOver = false;
+            isPaused = false;
+            undoCount = 0;
+            gameStartTime = Date.now();
+            updateUI();
+            document.getElementById('current-score').textContent = currentScore;
+            document.getElementById('best-score').textContent = bestScore;
+            saveGameState();
+        }
+
+        function updateUI() {
+            const gridContainer = document.getElementById('grid-container');
+            gridContainer.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
+            gridContainer.style.gridTemplateRows = `repeat(${gridSize}, 1fr)`;
+            gridContainer.innerHTML = '';
+            
+            for (let i = 0; i < gridSize; i++) 
+                for (let j = 0; j < gridSize; j++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.row = i; 
+                    cell.dataset.col = j;
+                    if (board[i][j] !== 0) { 
+                        cell.textContent = board[i][j]; 
+                        cell.classList.add(`tile-${Math.min(board[i][j], 8192)}`); 
+                    }
+                    gridContainer.appendChild(cell);
+                }
+            adjustFontSize();
+        }
+
+        function adjustFontSize() {
+            const cells = document.querySelectorAll('.cell');
+            const gc = document.getElementById('grid-container');
+            const cellWidth = gc.offsetWidth / gridSize * 0.85;
+            cells.forEach(cell => {
+                if (cell.textContent) {
+                    const len = cell.textContent.length;
+                    if (len <= 2) cell.style.fontSize = `${cellWidth * 0.5}px`;
+                    else if (len === 3) cell.style.fontSize = `${cellWidth * 0.4}px`;
+                    else if (len === 4) cell.style.fontSize = `${cellWidth * 0.32}px`;
+                    else cell.style.fontSize = `${cellWidth * 0.25}px`;
+                }
+            });
+        }
+
+        function saveGameState() {
+            store.setItem('gameBoard', JSON.stringify(board));
+            store.setItem('currentScore', currentScore);
+            store.setItem('bestScore', bestScore);
+            store.setItem('historyStack', JSON.stringify(historyStack));
+            store.setItem('gridSize', gridSize);
+            store.setItem('soundEnabled', soundEnabled);
+            store.setItem('darkTheme', darkTheme);
+        }
+
+        function calculateScoreDifference(merged, newBoard) {
+            let s = 0;
+            for (let i = 0; i < gridSize; i++) 
+                for (let j = 0; j < gridSize; j++) 
+                    if (merged[i][j]) s += newBoard[i][j];
+            return s;
+        }
+
+        async function handleMove(direction) {
+            if (isGameOver || isPaused) return;
+            
+            historyStack.push({ board: JSON.parse(JSON.stringify(board)), score: currentScore });
+            if (historyStack.length > 100) historyStack.shift();
+            store.setItem('historyStack', JSON.stringify(historyStack));
+
+            inputSequence.push(direction);
+            if (inputSequence.length > 8) inputSequence.shift();
+            if (JSON.stringify(inputSequence) === JSON.stringify(cheatCode)) { 
+                enterCheatMode(); 
+                return; 
+            }
+
+            const oldBoard = JSON.parse(JSON.stringify(board));
+            const { board: newBoard, merged: mergedMap } = computeMoveWithMerges(board, direction);
+
+            const hasChanged = JSON.stringify(newBoard) !== JSON.stringify(oldBoard);
+            if (hasChanged) {
+                addRandomTile(newBoard);
+                const scoreChange = calculateScoreDifference(mergedMap, newBoard);
+                currentScore += scoreChange;
+                document.getElementById('current-score').textContent = currentScore;
+                
+                if (scoreChange > 0) playSound(330 + scoreChange / 10, 0.1);
+                
+                if (currentScore > bestScore) { 
+                    bestScore = currentScore; 
+                    store.setItem('bestScore', bestScore); 
+                    document.getElementById('best-score').textContent = bestScore; 
+                    playSound(523, 0.2);
+                }
+                
+                board = newBoard;
+                saveGameState();
+                checkAchievements(board);
+                updateBoardWithAnimation(oldBoard, board, mergedMap);
+            }
+
+            if (!canMove(board)) {
+                setTimeout(() => {
+                    document.getElementById('final-score').textContent = currentScore;
+                    showGameOverModal();
+                }, 300);
+                isGameOver = true;
+            }
+        }
+
+        function updateBoardWithAnimation(oldBoard, newBoard, merged) {
+            const cells = Array.from(document.getElementById('grid-container').querySelectorAll('.cell'));
+            cells.forEach(cell => {
+                const r = parseInt(cell.dataset.row), c = parseInt(cell.dataset.col);
+                if (newBoard[r][c] !== oldBoard[r][c]) {
+                    if (newBoard[r][c] !== 0) {
+                        if (merged[r][c]) {
+                            cell.textContent = newBoard[r][c]; 
+                            cell.className = `cell tile-${Math.min(newBoard[r][c], 8192)} pulse`;
+                            cell.addEventListener('animationend', () => cell.classList.remove('pulse'), { once: true });
+                        } else if (oldBoard[r][c] === 0) {
+                            cell.textContent = newBoard[r][c]; 
+                            cell.className = `cell tile-${Math.min(newBoard[r][c], 8192)} appear`;
+                            cell.addEventListener('animationend', () => cell.classList.remove('appear'), { once: true });
+                        } else {
+                            cell.textContent = newBoard[r][c]; 
+                            cell.className = `cell tile-${Math.min(newBoard[r][c], 8192)}`;
+                        }
+                    } else { 
+                        cell.textContent = ''; 
+                        cell.className = 'cell'; 
+                    }
+                }
+            });
+            adjustFontSize();
+        }
+
+        function enterCheatMode() {
+            isCheatMode = true;
+            for (let i = 0; i < gridSize; i++) 
+                for (let j = 0; j < gridSize; j++) 
+                    if (board[i][j] !== 0) board[i][j] = 128;
+            updateUI();
+            const gc = document.getElementById('game-container');
+            const n = document.createElement('div'); 
+            n.id = 'cheat-notification'; 
+            n.textContent = '🎭 作弊模式已激活！';
+            n.style.cssText = 'position:absolute; top:10px; left:50%; transform:translateX(-50%); background:rgba(255,0,0,0.7); color:white; padding:10px 20px; border-radius:5px; z-index:100;';
+            gc.appendChild(n);
+            playSound(440, 0.5);
+            setTimeout(() => { 
+                exitCheatMode(); 
+                if (n.parentNode) n.parentNode.removeChild(n); 
+            }, 3000);
+        }
+
+        function exitCheatMode() { 
+            isCheatMode = false; 
+            inputSequence = []; 
+        }
+
+        function undoMove() {
+            if (!historyStack.length) return;
+            const prev = historyStack.pop();
+            board = prev.board; 
+            currentScore = prev.score;
+            undoCount++;
+            isGameOver = false;
+            document.getElementById('current-score').textContent = currentScore;
+            updateUI(); 
+            saveGameState();
+            checkAchievements(board);
+            playSound(392, 0.15);
+        }
+
+        // Modal Functions
+        function showGameOverModal() { document.getElementById('game-over-modal').style.display = 'flex'; }
+        function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; }
+        
+        function undoMoveAndCloseModal() { 
+            closeModal('game-over-modal'); 
+            undoMove(); 
+        }
+        
+        function initGameAndCloseModal() { 
+            closeModal('game-over-modal'); 
+            initGame(); 
+        }
+
+        // Settings Functions
+        function showSettings() {
+            const panel = document.getElementById('settings-panel');
+            panel.classList.toggle('active');
+        }
+
+        function setDifficulty(size) {
+            gridSize = size;
+            document.querySelectorAll('.difficulty-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            initGame();
+            saveGameState();
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const toggle = document.getElementById('sound-toggle');
+            const label = document.getElementById('sound-label');
+            toggle.classList.toggle('active');
+            label.textContent = soundEnabled ? '开启' : '关闭';
+            saveGameState();
+        }
+
+        function toggleTheme() {
+            darkTheme = !darkTheme;
+            const toggle = document.getElementById('theme-toggle');
+            const label = document.getElementById('theme-label');
+            toggle.classList.toggle('active');
+            label.textContent = darkTheme ? '开启' : '关闭';
+            document.body.classList.toggle('dark-theme');
+            saveGameState();
+        }
+
+        // Leaderboard Functions
+        function loadLeaderboard() {
+            const saved = store.getItem('leaderboard');
+            leaderboard = saved ? JSON.parse(saved) : [
+                { name: '玩家1', score: 2048, date: '2024-01-01' },
+                { name: '玩家2', score: 1024, date: '2024-01-02' },
+                { name: '玩家3', score: 512, date: '2024-01-03' }
+            ];
+            updateLeaderboardUI();
+        }
+
+        function updateLeaderboardUI() {
+            const list = document.getElementById('leaderboard-list');
+            leaderboard.sort((a, b) => b.score - a.score);
+            
+            list.innerHTML = leaderboard.slice(0, 10).map((item, index) => `
+                <div class="leaderboard-item">
+                    <span class="leaderboard-rank ${index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : ''}">${index + 1}</span>
+                    <div class="leaderboard-info">
+                        <div class="leaderboard-name">${item.name}</div>
+                        <div class="leaderboard-date">${item.date}</div>
+                    </div>
+                    <div class="leaderboard-score">${item.score}</div>
+                </div>
+            `).join('');
+        }
+
+        function saveScoreAndShare() {
+            const name = document.getElementById('player-name').value || '匿名玩家';
+            const score = currentScore;
+            const date = new Date().toISOString().split('T')[0];
+            
+            leaderboard.push({ name, score, date });
+            leaderboard.sort((a, b) => b.score - a.score);
+            leaderboard = leaderboard.slice(0, 10);
+            store.setItem('leaderboard', JSON.stringify(leaderboard));
+            loadLeaderboard();
+            
+            closeModal('game-over-modal');
+            showPage('leaderboard');
+            playSound(523, 0.3);
+        }
+
+        function shareScore() {
+            const score = currentScore;
+            const text = `我在2048++游戏中获得了 ${score} 分！快来挑战我吧！🎮`;
+            
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(text).then(() => {
+                    alert('分享文本已复制到剪贴板！');
+                });
+            }
+        }
+
+        function clearLeaderboard() {
+            if (confirm('确定要清空排行榜吗？')) {
+                leaderboard = [];
+                store.setItem('leaderboard', JSON.stringify(leaderboard));
+                updateLeaderboardUI();
+            }
+        }
+
+        // Achievements Functions
+        function loadAchievements() {
+            const saved = store.getItem('achievements');
+            if (saved) achievements = JSON.parse(saved);
+            updateAchievementsUI();
+        }
+
+        function saveAchievements() {
+            store.setItem('achievements', JSON.stringify(achievements));
+        }
+
+        function updateAchievementsUI() {
+            Object.entries(achievements).forEach(([key, unlocked]) => {
+                const card = document.getElementById(`achievement-${key}`);
+                if (card) {
+                    if (unlocked) {
+                        card.classList.add('unlocked');
+                        card.classList.remove('locked');
+                    } else {
+                        card.classList.add('locked');
+                        card.classList.remove('unlocked');
+                    }
+                }
+            });
+        }
+
+        function showAchievements() {
+            showPage('achievements');
+        }
+
+        // Page Navigation
+        function showPage(page) {
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            document.querySelectorAll('.container').forEach(container => {
+                container.style.display = 'none';
+            });
+            
+            if (page === 'game') {
+                document.getElementById('game-page').style.display = 'flex';
+            } else {
+                const targetPage = document.getElementById(`${page}-page`);
+                if (targetPage) {
+                    targetPage.style.display = 'block';
+                    if (page === 'leaderboard') loadLeaderboard();
+                    if (page === 'achievements') loadAchievements();
+                }
+            }
+        }
+
+        // Input Handling
+        const keyMap = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                if (isPaused) {
+                    closeModal('pause-modal');
+                    isPaused = false;
+                } else if (!isGameOver) {
+                    document.getElementById('pause-modal').style.display = 'flex';
+                    isPaused = true;
+                }
+                return;
+            }
+            if (keyMap[e.key]) { 
+                e.preventDefault(); 
+                handleMove(keyMap[e.key]); 
+            }
+        });
+
+        // Touch Handling
+        let tx0, ty0;
+        document.getElementById('game-container').addEventListener('touchstart', e => { 
+            tx0 = e.touches[0].clientX; 
+            ty0 = e.touches[0].clientY; 
+        }, { passive: true });
+        
+        document.getElementById('game-container').addEventListener('touchend', e => {
+            const dx = e.changedTouches[0].clientX - tx0, dy = e.changedTouches[0].clientY - ty0;
+            if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+            if (Math.abs(dx) > Math.abs(dy)) handleMove(dx > 0 ? 'right' : 'left');
+            else handleMove(dy > 0 ? 'down' : 'up');
+        }, { passive: true });
+
+        // Startup
+        window.addEventListener('resize', adjustFontSize);
+        
+        // Loading Animation
+        setTimeout(() => {
+            document.getElementById('loading-screen').style.display = 'none';
+            
+            // Load saved state
+            const savedSize = parseInt(store.getItem('gridSize'));
+            if (savedSize && savedSize >= 3 && savedSize <= 5) gridSize = savedSize;
+            
+            soundEnabled = store.getItem('soundEnabled') !== 'false';
+            darkTheme = store.getItem('darkTheme') === 'true';
+            
+            if (darkTheme) {
+                document.body.classList.add('dark-theme');
+                document.getElementById('theme-toggle').classList.add('active');
+                document.getElementById('theme-label').textContent = '开启';
+            }
+            if (!soundEnabled) {
+                document.getElementById('sound-toggle').classList.remove('active');
+                document.getElementById('sound-label').textContent = '关闭';
+            }
+            
+            loadAchievements();
+            loadLeaderboard();
+            
+            const savedBoard = store.getItem('gameBoard');
+            if (savedBoard) {
+                board = JSON.parse(savedBoard);
+                currentScore = parseInt(store.getItem('currentScore')) || 0;
+                bestScore = parseInt(store.getItem('bestScore')) || 0;
+                historyStack = JSON.parse(store.getItem('historyStack') || '[]');
+                
+                if (board.length === gridSize && board[0].length === gridSize && board.flat().some(x => x)) {
+                    updateUI();
+                    document.getElementById('current-score').textContent = currentScore;
+                    document.getElementById('best-score').textContent = bestScore;
+                    return;
+                }
+            }
+            
+            initGame();
+        }, 1500);
+    </script>
+</body>
+</html>
