@@ -620,7 +620,7 @@
     <div class="nav-menu">
         <button class="nav-btn active" onclick="showPage('game')">🎮 游戏</button>
         <button class="nav-btn" onclick="showPage('leaderboard')">🏆 排行榜</button>
-        <button class="nav-btn" onclick="showPage('achievements')">🏅 成就</button>
+        <button class="nav-btn" onclick="showPage('achievements')"> 成就</button>
         <button class="nav-btn" onclick="showPage('resume')"> 简历</button>
     </div>
 
@@ -634,7 +634,7 @@
             <div class="header-right">
                 <div class="score-item"><span>分数</span><span id="current-score">0</span></div>
                 <div class="score-item"><span>最高分</span><span id="best-score">0</span></div>
-                <button class="action-btn" onclick="undoMove()">↩️ 撤销</button>
+                <button class="action-btn" onclick="restartGame()">🔄 重新开始</button>
                 <button class="action-btn" onclick="showSettings()">️ 设置</button>
             </div>
         </div>
@@ -1186,6 +1186,15 @@
             saveGameState();
             checkAchievements(board);
             playSound(392, 0.15);
+        }
+
+        function restartGame() {
+            if (currentScore > 0 && !isGameOver) {
+                if (!confirm('确定要重新开始吗？当前分数将丢失！')) return;
+            }
+            historyStack = [];
+            initGame();
+            playSound(440, 0.2);
         }
 
         // Modal Functions
